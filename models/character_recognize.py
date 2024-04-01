@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+from PIL import Image
+from matplotlib import pyplot as plt
+from torchvision import transforms
 
 
 class Model(nn.Module):
@@ -42,10 +45,52 @@ class Model(nn.Module):
         return output
 
 
+def image_show(image: Image.Image, title=''):
+    plt.imshow(image, cmap='grey')
+    if title:
+        plt.title(title)
+    plt.show()
+
+
+CODE_TO_CHAR = {i: chr(ord('A') + i) for i in range(26)}
+CHAR_TO_CODE = {chr(ord('A') + i): i for i in range(26)}
+
+
 class CharacterRecognize:
-    def __init__(self):
-        None
+    def __init__(self, PATH):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = Model(256, 120, 80).to(self.device)
+        self.model.load_state_dict(torch.load(PATH))
+        self.model.eval()
+
+    def image_to_tensor(self, image: Image.Image):  # MinMax_scale_image #grey_scale #to_tensor #to_device
+        transform = transforms.ToTensor()
+        image_gery = image.convert("L")
+        torch_image = transform(image_gery).to(self.device)
+        return torch_image
+
+    def predict(self, image: Image.Image, top_k=None):
+        torch_image = self.image_to_tensor(image)
+        pred = self.model(torch_image)
+        if top_k:
+            top_values, top_indices = torch.topk(pred, k=top_k, sorted=True)
+            output = []
+            for value, index in zip(top_values[0], top_indices[0]):
+                output.append((CODE_TO_CHAR[index.item()], value.item()))
+            return output
+        else:
+            return CODE_TO_CHAR[torch.argmax(pred).item()], torch.max(pred).item()
 
 
 if __name__ == '__main__':
-    None
+    PATH = 'character_recognizer_model.pth'
+    obj = CharacterRecognize(PATH)
+    test_size = 12
+    manual_test_y = ('A', 'B', 'C', 'D', 'E', 'Z', 'W', 'U', 'V', 'O', 'Q', 'S')
+    for i in range(test_size):
+        image_path = f'../data/manual_test/{i}.png'
+        image = Image.open(image_path)
+        pred_3 = obj.predict(image, top_k=3)
+        pred = obj.predict(image)
+        image_show(image, title=f'pred = {pred[0]} | actual = {manual_test_y[i]}')
+        print(pred_3, '| actual', manual_test_y[i])
