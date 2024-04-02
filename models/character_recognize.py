@@ -57,7 +57,7 @@ CHAR_TO_CODE = {chr(ord('A') + i): i for i in range(26)}
 
 
 class CharacterRecognize:
-    def __init__(self, PATH):
+    def __init__(self, PATH='character_recognizer_model.pth'):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = Model(256, 120, 80).to(self.device)
         self.model.load_state_dict(torch.load(PATH))
